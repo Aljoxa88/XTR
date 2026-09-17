@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`soap_action:` optional field on `service:`-routed (plain HTTPS) SOAP DSLs.**
+  SOAP 1.1 ([§6.1.1](https://www.w3.org/TR/2000/NOTE-SOAP-20000508/#_Toc478383528))
+  requires a `SOAPAction` HTTP header on every request, carrying the quoted
+  `soapAction` value that the WSDL binding declares for the operation; strict
+  servers reject calls that omit it, and some use it for operation dispatch.
+  XTR never sent the header, so `service:`-routed DSLs could not talk to such a
+  provider. When `soap_action:` is set, its value is now sent quoted
+  (`SOAPAction: "DoStuff_Request"`). The Security Server executor ignores the
+  field — X-Road dispatches on its own headers. Backward-compatible
+  (`serde(default)`): when the field is absent no header is sent, so existing
+  DSL files are unaffected. Covered by two regression tests
+  (`soap_action_header_sent_when_declared`,
+  `soap_action_header_absent_when_not_declared`).
+
 ## [0.4.1-rc] - 2026-09-13
 
 Same-day hotfix on `0.4.0-rc`. Only change is the Dockerfile

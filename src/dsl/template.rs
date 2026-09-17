@@ -33,6 +33,12 @@ pub struct SoapTemplate {
     /// Optional direct upstream URL. `None` → route via Security Server.
     pub service: Option<String>,
     pub envelope: String,
+    /// Optional `SOAPAction` HTTP header value, taken from the operation's
+    /// `soapAction` in the WSDL binding. SOAP 1.1 (§6.1.1) requires the header
+    /// on every HTTP request, and strict servers reject calls that omit it.
+    /// Only applies to `service:`-routed (plain HTTPS) DSLs; the Security
+    /// Server executor ignores it, as X-Road dispatches on its own headers.
+    pub soap_action: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -87,6 +93,7 @@ impl<'de> Deserialize<'de> for XRoadTemplate {
                 params: raw.params,
                 service: raw.service,
                 envelope: raw.envelope,
+                soap_action: raw.soap_action,
             }),
             "rest" => TemplateKind::Rest(RestTemplate {
                 target: raw.target.ok_or_else(|| {
@@ -122,6 +129,8 @@ struct RawTemplate {
     service: Option<String>,
     #[serde(default)]
     envelope: String,
+    #[serde(default)]
+    soap_action: Option<String>,
 
     // REST-only fields
     #[serde(default)]
