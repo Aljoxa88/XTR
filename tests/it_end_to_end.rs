@@ -312,6 +312,47 @@ envelope: >
     assert!(capture.soap_action.lock().unwrap().clone().is_none());
 }
 
+/// Empty-string `soap_action: ""` is spec-legal per SOAP 1.1 §6.1.1
+/// ("intent provided by other means"). The executor must still
+/// wrap-and-send it as `SOAPAction: ""` — that distinct-from-absent
+/// value tells a strict server "yes, I understand SOAPAction, but I
+/// have no specific intent to declare here", which some stacks
+/// treat differently from omitting the header entirely.
+#[tokio::test]
+async fn soap_action_header_empty_string_sends_quoted_empty() {
+    let (mock_url, capture) = spawn_mock().await;
+    let tmp = TempDir::new().unwrap();
+    let dsl = format!(
+        "params: [reg_code]
+service: {mock_url}
+method: POST
+soap_action: \"\"
+envelope: >
+  <soap:Envelope><soap:Body><q><reg_code>{{{{reg_code}}}}</reg_code></q></soap:Body></soap:Envelope>
+"
+    );
+    write_dsl(tmp.path(), "ar", "lookup", &dsl);
+    let app = build_xtr(tmp.path()).await;
+
+    let resp = axum_test(
+        app,
+        axum::http::Request::builder()
+            .method("POST")
+            .uri("/ar/lookup")
+            .header("content-type", "application/json")
+            .body(axum::body::Body::from(r#"{"reg_code": "42"}"#))
+            .unwrap(),
+    )
+    .await;
+
+    assert_eq!(resp.status, 200);
+    let action = capture.soap_action.lock().unwrap().clone().unwrap();
+    assert_eq!(
+        action, "\"\"",
+        "empty soap_action must send SOAPAction: \"\""
+    );
+}
+
 #[tokio::test]
 async fn unknown_service_returns_404_with_structured_error() {
     let tmp = TempDir::new().unwrap();
